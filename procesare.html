@@ -18,7 +18,7 @@
         function start() {
             canvas = document.getElementById('canvas');
             ctx = canvas.getContext('2d');
-            img1.src = 'images.jpg';
+            img1.src = 'image3.png';
         }
 
         img1.onload = function () {
@@ -27,17 +27,67 @@
             width = img1.width;
             height = img1.height;
             ctx.drawImage(img1, 0, 0);
-            imageData = ctx.getImageData(0, 0, img1.width, img1.height);
 
-            greyData = makeyGrey();
-            applyEdgeDetection(greyData);
+            startProcessing();
+            
         }
 
-        function applyEdgeDetection(data) {
-            var filteredData = [];
-            var filterWindow = [[-1, -2, -1],
+        function startProcessing() {
+            var filterWindowHorizontal = [[-1, -2, -1],
             [0, 0, 0],
             [1, 2, 1]];
+            var filterWindowVertical = [[-1, 0, 1],
+            [-2, 0, 2],
+            [-1, 0, 1]];
+            imageData = ctx.getImageData(0, 0, img1.width, img1.height);
+            var greyData = makeyGrey();
+            var edgeDataHorizontal = applyEdgeDetection(greyData, filterWindowHorizontal);
+            var edgeDataVertical = applyEdgeDetection(greyData, filterWindowVertical);
+            var mergedData = [];
+            for (let i = 0; i < edgeDataHorizontal.length; i++) {
+                mergedData[i] = Math.max(edgeDataHorizontal[i], edgeDataVertical[i]);
+            }
+            addNewCanvas(mergedData, true);
+            dihotomicData = applyDihotomic(mergedData, 100);
+            //mediumFilterData = mediumFilter(mergedData);
+            //dihotomicData = applyDihotomic(mediumFilterData, 130);
+            addNewCanvas(dihotomicData, true);
+        }
+
+        function mediumFilter(data) {
+             var filteredData = [];
+            var m = arrayToMatrix(data, width);
+            var filteredMatrix = [];
+
+            for (let i = 0; i < height; i++) {
+                filteredMatrix[i] = [];
+                for (let j = 0; j < width; j++) {
+                    filteredMatrix[i][j] = 0;
+                }
+            }
+
+            for (let i = 1; i < height - 1; i++) {
+                for (let j = 1; j < width - 1; j++) {
+                    filteredMatrix[i][j] = Math.abs((m[i - 1][j - 1] +
+                        m[i - 1][j] +
+                        m[i - 1][j + 1] +
+                        m[i][j - 1] +
+                        m[i][j] +
+                        m[i][j + 1] +
+                        m[i + 1][j - 1] +
+                        m[i + 1][j] +
+                        m[i + 1][j + 1]) / 9);
+                    filteredMatrix[i][j] = filteredMatrix[i][j] > 255 ? 255 : filteredMatrix[i][j];
+                    //filteredMatrix[i][j] = 255 - filteredMatrix[i][j];
+                }
+            }
+            var filteredData = matrixToArray(filteredMatrix);
+            addNewCanvas(filteredData);
+            return filteredData;
+        }
+
+        function applyEdgeDetection(data, filterWindow) {
+            var filteredData = [];
             var m = arrayToMatrix(data, width);
             // var a = matrixToArray(m);
             // addNewCanvas(a);
@@ -62,11 +112,21 @@
                                                      m[i + 1][j] * filterWindow[2][1] + 
                                                      m[i + 1][j + 1] * filterWindow[2][2]));
                     filteredMatrix[i][j] = filteredMatrix[i][j] > 255 ? 255 : filteredMatrix[i][j];
-                    filteredMatrix[i][j] = 255 - filteredMatrix[i][j];
+                    //filteredMatrix[i][j] = 255 - filteredMatrix[i][j];
                 }
             }
             var filteredData = matrixToArray(filteredMatrix);
             addNewCanvas(filteredData);
+            return filteredData;
+        }
+
+        function applyDihotomic(data, threshold) {
+            var newData = [];
+            for (var i = 0; i < data.length; i++) {
+                newData[i] = data[i] < threshold ? 0 : 255;
+            }
+            addNewCanvas(newData);
+            return newData;
         }
 
         function matrixToArray(matrix) {
@@ -109,12 +169,12 @@
         }
 
 
-        function addNewCanvas(data) {
+        function addNewCanvas(data, inverted = false) {
             var image = ctx.createImageData(width, height);
             for (var i = 0; i < data.length; i++) {
-                image.data[i * 4 + 0] = data[i];
-                image.data[i * 4 + 1] = data[i];
-                image.data[i * 4 + 2] = data[i];
+                image.data[i * 4 + 0] = inverted ? 255 - data[i] : data[i];
+                image.data[i * 4 + 1] = inverted ? 255 - data[i] : data[i];
+                image.data[i * 4 + 2] = inverted ? 255 - data[i] : data[i];
                 image.data[i * 4 + 3] = 255;
             }
 
