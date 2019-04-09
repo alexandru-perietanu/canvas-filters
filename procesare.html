@@ -13,12 +13,14 @@
         var width;
         var height;
         var greyData;
+        var labelNo = 1;
+        var labels = {};
 
 
         function start() {
             canvas = document.getElementById('canvas');
             ctx = canvas.getContext('2d');
-            img1.src = 'image3.png';
+            img1.src = 'vaze.jpg';
         }
 
         img1.onload = function () {
@@ -29,7 +31,7 @@
             ctx.drawImage(img1, 0, 0);
 
             startProcessing();
-            
+
         }
 
         function startProcessing() {
@@ -39,6 +41,7 @@
             var filterWindowVertical = [[-1, 0, 1],
             [-2, 0, 2],
             [-1, 0, 1]];
+
             imageData = ctx.getImageData(0, 0, img1.width, img1.height);
             var greyData = makeyGrey();
             var edgeDataHorizontal = applyEdgeDetection(greyData, filterWindowHorizontal);
@@ -51,11 +54,145 @@
             dihotomicData = applyDihotomic(mergedData, 100);
             //mediumFilterData = mediumFilter(mergedData);
             //dihotomicData = applyDihotomic(mediumFilterData, 130);
+            var dataDiation = applyDilation(dihotomicData);
+            fillObjects(dataDiation);
             addNewCanvas(dihotomicData, true);
         }
 
+        // doesn work ok at this point
+        function fillObjects(data) {
+            var filteredData = [];
+            var m = arrayToMatrix(data, width);
+            var filteredMatrix = [];
+            var fillValue = 255;
+            var needsFill = false;
+
+            for (let i = 0; i < height; i++) {
+                filteredMatrix[i] = [];
+                for (let j = 0; j < width; j++) {
+                    filteredMatrix[i][j] = 0;
+                }
+            }
+
+            for (let i = 1; i < height - 1; i++) {
+                for (let j = 1; j < width - 1; j++) {
+                    //filteredMatrix[i][j] = 
+                    if (m[i][j] == 255 && m[i][j - 1] == 0 && m[i - 1][j] == 0 && m[i - 1][j - 1] == 0 && m[i - 1][j + 1] == 0) {
+                        if (labelNo > 1) {
+                            labels[labelNo].sort((a, b) => {
+                                return a - b;
+                            });
+                        }
+                        labelNo += 10;
+                        labels[labelNo] = [];
+                        filteredMatrix[i][j] = labelNo;
+                        
+                    } else if (m[i][j] == 255) {
+                        if (m[i][j - 1] == 255) {
+                            filteredMatrix[i][j] = filteredMatrix[i][j - 1];
+                            if (!labels[labelNo].includes(filteredMatrix[i][j - 1])) {
+                                labels[labelNo].push(filteredMatrix[i][j - 1]);
+                            }
+                        }
+                        if (m[i - 1][j] == 255) {
+                            filteredMatrix[i][j] = filteredMatrix[i - 1][j];
+                            if (!labels[labelNo].includes(filteredMatrix[i - 1][j])) {
+                                labels[labelNo].push(filteredMatrix[i - 1][j]);
+                            }
+                        }
+                        if (m[i - 1][j - 1] == 255) {
+                            filteredMatrix[i][j] = filteredMatrix[i - 1][j - 1];
+                            if (!labels[labelNo].includes(filteredMatrix[i - 1][j - 1])) {
+                                labels[labelNo].push(filteredMatrix[i - 1][j - 1]);
+                            }
+                        }
+                        if (m[i - 1][j + 1] == 255) {
+                            filteredMatrix[i][j] = filteredMatrix[i - 1][j + 1];
+                            if (!labels[labelNo].includes(filteredMatrix[i - 1][j + 1])) {
+                                labels[labelNo].push(filteredMatrix[i - 1][j + 1]);
+                            }
+                        }
+                    } else {
+                         filteredMatrix[i][j] = m[i][j];
+                    }
+                }
+            }
+            var regions = [];
+            var newRegions = [];
+            var step = 10;
+            var col = 255;
+              for (let i = 1; i < height - 1; i++) {
+                for (let j = 1; j < width - 1; j++) {
+                    for (let k in labels) {
+                        if (labels[k].includes(filteredMatrix[i][j])) {
+                            filteredMatrix[i][j] = labels[k][0];
+                            if (!regions.includes(labels[k][0])) {
+                                regions.push(labels[k][0]);
+                            }
+                        }
+                    }
+                }
+            }
+            step = Math.round(255 / regions.length)
+            for (let i = 0; i < regions.length; i++) {
+                newRegions[i] = col;
+                col -= step;
+            }
+            //newRegions[labels[k][0]] = col;
+            
+            for (let i = 1; i < height - 1; i++) {
+                for (let j = 1; j < width - 1; j++) {
+                    if (newRegions.includes(filteredMatrix[i][j])) {
+                        filteredMatrix[i][j] = newRegions[filteredMatrix[i][j]];
+                    }
+                }
+            }
+            //console.log(labels);
+            console.log(regions);
+            console.log(newRegions);
+            console.log(filteredMatrix);
+            var filteredData = matrixToArray(filteredMatrix);
+            addNewCanvas(filteredData);
+            return filteredData;
+        }
+
+        function applyDilation(data) {
+            var filteredData = [];
+            var m = arrayToMatrix(data, width);
+            var filteredMatrix = [];
+
+            for (let i = 0; i < height; i++) {
+                filteredMatrix[i] = [];
+                for (let j = 0; j < width; j++) {
+                    filteredMatrix[i][j] = 0;
+                }
+            }
+
+            for (let i = 1; i < height - 1; i++) {
+                for (let j = 1; j < width - 1; j++) {
+                    //filteredMatrix[i][j] = 
+                    if (m[i][j] == 255) {
+                        filteredMatrix[i - 1][j - 1] = 255;
+                        filteredMatrix[i - 1][j] = 255;
+                        filteredMatrix[i - 1][j + 1] = 255;
+                        filteredMatrix[i][j - 1] = 255;
+                        filteredMatrix[i][j] = 255;
+                        filteredMatrix[i][j + 1] = 255;
+                        filteredMatrix[i + 1][j - 1] = 255;
+                        filteredMatrix[i + 1][j] = 255;
+                        filteredMatrix[i + 1][j + 1] = 255;
+                    }
+                    filteredMatrix[i][j] = filteredMatrix[i][j] > 255 ? 255 : filteredMatrix[i][j];
+                    //filteredMatrix[i][j] = 255 - filteredMatrix[i][j];
+                }
+            }
+            var filteredData = matrixToArray(filteredMatrix);
+            addNewCanvas(filteredData);
+            return filteredData;
+        }
+
         function mediumFilter(data) {
-             var filteredData = [];
+            var filteredData = [];
             var m = arrayToMatrix(data, width);
             var filteredMatrix = [];
 
@@ -102,15 +239,15 @@
 
             for (let i = 1; i < height - 1; i++) {
                 for (let j = 1; j < width - 1; j++) {
-                    filteredMatrix[i][j] = Math.abs((m[i - 1][j - 1] * filterWindow[0][0] + 
-                                                     m[i - 1][j] * filterWindow[0][1] +
-                                                     m[i - 1][j + 1] * filterWindow[0][2] + 
-                                                     m[i][j - 1] * filterWindow[1][0] + 
-                                                     m[i][j] * filterWindow[1][1] + 
-                                                     m[i][j + 1] * filterWindow[1][2] + 
-                                                     m[i + 1][j - 1] * filterWindow[2][0] + 
-                                                     m[i + 1][j] * filterWindow[2][1] + 
-                                                     m[i + 1][j + 1] * filterWindow[2][2]));
+                    filteredMatrix[i][j] = Math.abs((m[i - 1][j - 1] * filterWindow[0][0] +
+                        m[i - 1][j] * filterWindow[0][1] +
+                        m[i - 1][j + 1] * filterWindow[0][2] +
+                        m[i][j - 1] * filterWindow[1][0] +
+                        m[i][j] * filterWindow[1][1] +
+                        m[i][j + 1] * filterWindow[1][2] +
+                        m[i + 1][j - 1] * filterWindow[2][0] +
+                        m[i + 1][j] * filterWindow[2][1] +
+                        m[i + 1][j + 1] * filterWindow[2][2]));
                     filteredMatrix[i][j] = filteredMatrix[i][j] > 255 ? 255 : filteredMatrix[i][j];
                     //filteredMatrix[i][j] = 255 - filteredMatrix[i][j];
                 }
