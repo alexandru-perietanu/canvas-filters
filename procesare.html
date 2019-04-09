@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Title of the document</title>
+    <script>
+        document.addEventListener("DOMContentLoaded", start);
+        var canvas;
+        var ctx;
+        var img1 = new Image();
+        img1.crossorigin = "anonymous";
+        var imageData;
+        var width;
+        var height;
+        var greyData;
+
+
+        function start() {
+            canvas = document.getElementById('canvas');
+            ctx = canvas.getContext('2d');
+            img1.src = 'images.jpg';
+        }
+
+        img1.onload = function () {
+            canvas.setAttribute("width", img1.width);
+            canvas.setAttribute("height", img1.height);
+            width = img1.width;
+            height = img1.height;
+            ctx.drawImage(img1, 0, 0);
+            imageData = ctx.getImageData(0, 0, img1.width, img1.height);
+
+            greyData = makeyGrey();
+            applyEdgeDetection(greyData);
+        }
+
+        function applyEdgeDetection(data) {
+            var filteredData = [];
+            var filterWindow = [[-1, -2, -1],
+            [0, 0, 0],
+            [1, 2, 1]];
+            var m = arrayToMatrix(data, width);
+            // var a = matrixToArray(m);
+            // addNewCanvas(a);
+            var filteredMatrix = [];
+
+            for (let i = 0; i < height; i++) {
+                filteredMatrix[i] = [];
+                for (let j = 0; j < width; j++) {
+                    filteredMatrix[i][j] = 0;
+                }
+            }
+
+            for (let i = 1; i < height - 1; i++) {
+                for (let j = 1; j < width - 1; j++) {
+                    filteredMatrix[i][j] = Math.abs((m[i - 1][j - 1] * filterWindow[0][0] + 
+                                                     m[i - 1][j] * filterWindow[0][1] +
+                                                     m[i - 1][j + 1] * filterWindow[0][2] + 
+                                                     m[i][j - 1] * filterWindow[1][0] + 
+                                                     m[i][j] * filterWindow[1][1] + 
+                                                     m[i][j + 1] * filterWindow[1][2] + 
+                                                     m[i + 1][j - 1] * filterWindow[2][0] + 
+                                                     m[i + 1][j] * filterWindow[2][1] + 
+                                                     m[i + 1][j + 1] * filterWindow[2][2]));
+                    filteredMatrix[i][j] = filteredMatrix[i][j] > 255 ? 255 : filteredMatrix[i][j];
+                    filteredMatrix[i][j] = 255 - filteredMatrix[i][j];
+                }
+            }
+            var filteredData = matrixToArray(filteredMatrix);
+            addNewCanvas(filteredData);
+        }
+
+        function matrixToArray(matrix) {
+            var a = [];
+            for (let i = 0; i < matrix.length; i++) {
+                for (let j = 0; j < matrix[i].length; j++) {
+                    a.push(matrix[i][j]);
+                }
+            }
+            return a;
+        }
+
+        function arrayToMatrix(a, lineWidth) {
+            var m = [];
+            var k = 0;
+            m[k] = [];
+            for (var i = 0; i < a.length; i++) {
+                if (i % lineWidth == 0 && i > 0) {
+                    k++;
+                    m[k] = [];
+                }
+                m[k][i % lineWidth] = a[i];
+            }
+            return m;
+        }
+
+        function makeyGrey() {
+
+            var x;
+            var greyData = [];
+            for (var i = 0; i < imageData.data.length; i++) {
+                x = Math.round(imageData.data[i] * 0.3 +
+                    imageData.data[i] * 0.59 +
+                    imageData.data[i] * 0.11);
+                greyData[i / 4] = x;
+            }
+
+            addNewCanvas(greyData);
+            return greyData;
+        }
+
+
+        function addNewCanvas(data) {
+            var image = ctx.createImageData(width, height);
+            for (var i = 0; i < data.length; i++) {
+                image.data[i * 4 + 0] = data[i];
+                image.data[i * 4 + 1] = data[i];
+                image.data[i * 4 + 2] = data[i];
+                image.data[i * 4 + 3] = 255;
+            }
+
+            var c = document.createElement("canvas");
+            var ctx2 = c.getContext("2d");
+            c.setAttribute("width", img1.width);
+            c.setAttribute("height", img1.height);
+            document.body.appendChild(c);
+            ctx2.putImageData(image, 0, 0);
+        }
+
+    </script>
+
+</head>
+
+<body>
+    <canvas id="canvas"></canvas>
+</body>
+
+</html>
