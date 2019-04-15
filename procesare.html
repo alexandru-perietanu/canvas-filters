@@ -13,8 +13,8 @@
         var width;
         var height;
         var greyData;
-        var labelNo = 1;
-        var labels = {};
+        var labelNo = 0;
+        var labels = [0];
 
 
         function start() {
@@ -55,8 +55,69 @@
             //mediumFilterData = mediumFilter(mergedData);
             //dihotomicData = applyDihotomic(mediumFilterData, 130);
             var dataDiation = applyDilation(dihotomicData);
-            fillObjects(dataDiation);
+            var floodFilled = floodFill(dataDiation);
+            var invertedFlood = invert(floodFilled);
+            addNewCanvas(invertedFlood);
+            var filledObjects = mergeData(invertedFlood, dataDiation);
+            addNewCanvas(filledObjects);
+            fillObjects(filledObjects);
             addNewCanvas(dihotomicData, true);
+        }
+
+        function mergeData(a, b) {
+            var c = [];
+            for (var i = 0; i < a.length; i++) {
+                c[i] = a[i] || b[i];
+            }
+            return c;
+        }
+
+        function invert(a) {
+            var b = [];
+            for (var i = 0; i < a.length; i++) {
+                b[i] = 255 - a[i];
+            }
+            return b;
+        }
+
+        function floodFill(data) {
+            var m = arrayToMatrix(data, width);
+            var filteredMatrix = [];
+            var row = [-1, -1, -1, 0, 0, 1, 1, 1];
+            var col = [-1, 0, 1, -1, 1, -1, 0, 1];
+            for (let i = 0; i < m.length; i++) {
+                filteredMatrix[i] = [];
+                for (let j = 0; j < m[i].length; j++) {
+                    filteredMatrix[i][j] = m[i][j];
+                }
+            }
+
+            var x = 0;
+            var y = 0;
+            var queue = [];
+            var color = filteredMatrix[0][0];
+            var newColor = 255;
+            queue.push({ x: x, y: y });
+            while (queue.length) {
+                let p = queue.pop();
+                filteredMatrix[p.x][p.y] = newColor;
+                for (let k = 0; k < 8; k++) {
+                    if (isSafe(filteredMatrix, p.x + row[k], p.y + col[k], color)) {
+                        queue.push({
+                            x: p.x + row[k],
+                            y: p.y + col[k]
+                        });
+                    }
+                }
+            }
+
+            var filteredData = matrixToArray(filteredMatrix);
+            addNewCanvas(filteredData);
+            return filteredData;
+        }
+
+        function isSafe(matrix, x, y, color) {
+            return (x >= 0 && x < matrix.length && y >= 0 && y < matrix[0].length) && matrix[x][y] == color;
         }
 
         // doesn work ok at this point
@@ -66,94 +127,100 @@
             var filteredMatrix = [];
             var fillValue = 255;
             var needsFill = false;
+            var top;
+            var left;
+            //var labelNo = 1;
+            //var labels = [];
 
-            for (let i = 0; i < height; i++) {
-                filteredMatrix[i] = [];
-                for (let j = 0; j < width; j++) {
-                    filteredMatrix[i][j] = 0;
+            // for (let i = 0; i < height; i++) {
+            //     filteredMatrix[i] = [];
+            //     for (let j = 0; j < width; j++) {
+            //         filteredMatrix[i][j] = 0;
+            //     }
+            // }
+            /*
+        m = [
+                [255, 0, 255, 255, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255, 0],
+                [0, 0, 255, 0, 0, 255, 0, 0, 255, 255, 255, 0, 0, 0, 255],
+                [0, 255, 255, 255, 255, 0, 0, 0, 0, 255, 0, 255, 255, 255, 255],
+                [255, 0, 255, 255, 0, 255, 0, 0, 0, 0, 255, 255, 0, 0, 255],
+                [0, 0, 255, 255, 0, 0, 0, 0, 255, 0, 0, 0, 255, 0, 255],
+                [255, 0, 255, 0, 255, 0, 0, 0, 255, 0, 0, 255, 0, 255, 255],
+                [255, 255, 0, 0, 255, 0, 255, 255, 255, 255, 255, 255, 255, 255, 0],
+                [255, 0, 0, 255, 255, 255, 0, 0, 255, 255, 255, 0, 0, 255, 255],
+                [255, 255, 0, 255, 255, 255, 0, 255, 0, 255, 0, 0, 255, 0, 0],
+                [0, 0, 255, 0, 0, 255, 255, 0, 255, 255, 0, 255, 255, 0, 0]
+            ];
+            */
+            for (let i = 0; i < m.length; i++) {
+                for (let j = 0; j < m[i].length; j++) {
+                    top = (i == 0 ? 0 : m[i - 1][j]);
+                    left = (j == 0 ? 0 : m[i][j - 1]);
+                    if (m[i][j] == 255) {
+                        if (left == 0 && top == 0) {
+                            labelNo++;
+                            m[i][j] = labelNo;
+                            labels.push(labelNo);
+                        } else if (left != 0 && top == 0 || left == 0 && top != 0) {
+                            m[i][j] = Math.max(top, left);
+                        } else {
+                            m[i][j] = union(top, left);
+                        }
+                    }
+                }
+            }
+            console.log(labels);
+            //debugger;
+
+            var newLabels = [];
+            for (let i = 0; i <= labelNo; i++) {
+                newLabels[i] = 0;
+            }
+            for (let i = 0; i < m.length; i++) {
+                for (let j = 0; j < m[i].length; j++) {
+                    if (m[i][j]) {
+                        let x = find(m[i][j]);
+                        //console.log(x);
+                        if (newLabels[x] == 0) {
+                            newLabels[0]++;
+                            newLabels[x] = newLabels[0];
+                        }
+                        m[i][j] = newLabels[x];
+                    }
                 }
             }
 
-            for (let i = 1; i < height - 1; i++) {
-                for (let j = 1; j < width - 1; j++) {
-                    //filteredMatrix[i][j] = 
-                    if (m[i][j] == 255 && m[i][j - 1] == 0 && m[i - 1][j] == 0 && m[i - 1][j - 1] == 0 && m[i - 1][j + 1] == 0) {
-                        if (labelNo > 1) {
-                            labels[labelNo].sort((a, b) => {
-                                return a - b;
-                            });
-                        }
-                        labelNo += 10;
-                        labels[labelNo] = [];
-                        filteredMatrix[i][j] = labelNo;
-                        
-                    } else if (m[i][j] == 255) {
-                        if (m[i][j - 1] == 255) {
-                            filteredMatrix[i][j] = filteredMatrix[i][j - 1];
-                            if (!labels[labelNo].includes(filteredMatrix[i][j - 1])) {
-                                labels[labelNo].push(filteredMatrix[i][j - 1]);
-                            }
-                        }
-                        if (m[i - 1][j] == 255) {
-                            filteredMatrix[i][j] = filteredMatrix[i - 1][j];
-                            if (!labels[labelNo].includes(filteredMatrix[i - 1][j])) {
-                                labels[labelNo].push(filteredMatrix[i - 1][j]);
-                            }
-                        }
-                        if (m[i - 1][j - 1] == 255) {
-                            filteredMatrix[i][j] = filteredMatrix[i - 1][j - 1];
-                            if (!labels[labelNo].includes(filteredMatrix[i - 1][j - 1])) {
-                                labels[labelNo].push(filteredMatrix[i - 1][j - 1]);
-                            }
-                        }
-                        if (m[i - 1][j + 1] == 255) {
-                            filteredMatrix[i][j] = filteredMatrix[i - 1][j + 1];
-                            if (!labels[labelNo].includes(filteredMatrix[i - 1][j + 1])) {
-                                labels[labelNo].push(filteredMatrix[i - 1][j + 1]);
-                            }
-                        }
-                    } else {
-                         filteredMatrix[i][j] = m[i][j];
-                    }
+            var total_clusters = newLabels[0];
+            console.log(newLabels);
+            //debugger;
+            var maxColor = 255;
+            var step = Math.floor(maxColor / total_clusters);
+            var colors = [0];
+            for (let i = 1; i <= total_clusters; i++) {
+                colors[i] = maxColor;
+                maxColor -= step;
+            }
+            for (let i = 0; i < m.length; i++) {
+                for (let j = 0; j < m[i].length; j++) {
+                    m[i][j] = colors[m[i][j]];
                 }
             }
-            var regions = [];
-            var newRegions = [];
-            var step = 10;
-            var col = 255;
-              for (let i = 1; i < height - 1; i++) {
-                for (let j = 1; j < width - 1; j++) {
-                    for (let k in labels) {
-                        if (labels[k].includes(filteredMatrix[i][j])) {
-                            filteredMatrix[i][j] = labels[k][0];
-                            if (!regions.includes(labels[k][0])) {
-                                regions.push(labels[k][0]);
-                            }
-                        }
-                    }
-                }
-            }
-            step = Math.round(255 / regions.length)
-            for (let i = 0; i < regions.length; i++) {
-                newRegions[i] = col;
-                col -= step;
-            }
-            //newRegions[labels[k][0]] = col;
-            
-            for (let i = 1; i < height - 1; i++) {
-                for (let j = 1; j < width - 1; j++) {
-                    if (newRegions.includes(filteredMatrix[i][j])) {
-                        filteredMatrix[i][j] = newRegions[filteredMatrix[i][j]];
-                    }
-                }
-            }
-            //console.log(labels);
-            console.log(regions);
-            console.log(newRegions);
-            console.log(filteredMatrix);
-            var filteredData = matrixToArray(filteredMatrix);
+
+            var filteredData = matrixToArray(m);
             addNewCanvas(filteredData);
             return filteredData;
+        }
+
+        function find(x) {
+            var y = x;
+            while (labels[y] != y) {
+                y = labels[y];
+            }
+            return y;
+        }
+
+        function union(x, y) {
+            return labels[find(x)] = find(y);
         }
 
         function applyDilation(data) {
