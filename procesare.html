@@ -20,7 +20,10 @@
         function start() {
             canvas = document.getElementById('canvas');
             ctx = canvas.getContext('2d');
-            img1.src = 'vaze.jpg';
+            //img1.src = 'vaze.jpg';
+            //img1.src = 'images2.png';
+            img1.src = 'tools.jpg';
+            //img1.src = 'suruburi.png';
         }
 
         img1.onload = function () {
@@ -120,7 +123,7 @@
             return (x >= 0 && x < matrix.length && y >= 0 && y < matrix[0].length) && matrix[x][y] == color;
         }
 
-        // doesn work ok at this point
+        //The Hoshen-Kopelman Algorithm
         function fillObjects(data) {
             var filteredData = [];
             var m = arrayToMatrix(data, width);
@@ -191,6 +194,7 @@
             }
 
             var total_clusters = newLabels[0];
+            document.getElementById("noObjects").innerHTML = total_clusters;
             console.log(newLabels);
             //debugger;
             var maxColor = 255;
@@ -358,7 +362,6 @@
         }
 
         function makeyGrey() {
-
             var x;
             var greyData = [];
             for (var i = 0; i < imageData.data.length; i++) {
@@ -396,6 +399,7 @@
 
 <body>
     <canvas id="canvas"></canvas>
+    <p id ="noObjects"></p>
 </body>
 
 </html>
